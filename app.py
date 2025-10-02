@@ -110,8 +110,13 @@ elif page == "Predictive Model":
     st.pyplot(fig)
 
 # --- Route Optimization Page ---
+# --- Route Optimization Page (Corrected) ---
 elif page == "Route Optimization":
     st.title("Vehicle Route Optimization")
+
+    # Initialize session state to store the map
+    if 'route_map' not in st.session_state:
+        st.session_state['route_map'] = None
 
     if st.button("Calculate Optimized Route for Full Bins"):
         with st.spinner("Finding the most efficient route..."):
@@ -124,12 +129,9 @@ elif page == "Route Optimization":
             data = {}
             data['locations'] = list(zip(route_data['bin_location_lat'], route_data['bin_location_lon']))
             data['demands'] = [int(d) for d in route_data['demand_liters']]
-            
-            # --- THIS IS THE CORRECTED PART ---
-            data['vehicle_capacities'] = [20000] # Set truck capacity to 20,000 Liters
+            data['vehicle_capacities'] = [20000]
             data['num_vehicles'] = 1
             data['depot'] = 0
-            # --- END OF CORRECTION ---
 
             manager = pywrapcp.RoutingIndexManager(len(data['locations']), data['num_vehicles'], data['depot'])
             routing = pywrapcp.RoutingModel(manager)
@@ -174,6 +176,12 @@ elif page == "Route Optimization":
                     folium.Marker(location=[row['bin_location_lat'], row['bin_location_lon']], popup=f"Bin {row['bin_id']} (Demand: {row['demand_liters']:.0f} L)", icon=folium.Icon(color='blue', icon='trash')).add_to(m)
                 folium.PolyLine(locations=optimized_route_coords, color='green', weight=5, opacity=0.8).add_to(m)
                 
-                st_folium(m, width=725, height=500)
+                # Save the map to the session state
+                st.session_state['route_map'] = m
             else:
                 st.error("No solution found!")
+                st.session_state['route_map'] = None
+
+    # Always display the map if it exists in the session state
+    if st.session_state['route_map']:
+        st_folium(st.session_state['route_map'], width=725, height=500)
