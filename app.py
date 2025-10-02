@@ -110,9 +110,7 @@ elif page == "Predictive Model":
     st.pyplot(fig)
 
 # --- Route Optimization Page ---
-# --- Route Optimization Page (Corrected) ---
-# --- Route Optimization Page (Final Version) ---
-# --- Route Optimization Page (Final Version with Key) ---
+# --- Route Optimization Page (Correctly Indented) ---
 elif page == "Route Optimization":
     st.title("Vehicle Route Optimization")
 
@@ -187,11 +185,6 @@ elif page == "Route Optimization":
     # --- Display Logic ---
     if st.session_state.route_map:
         st.write("### Optimized Route Map")
-        # --- THIS IS THE MODIFIED LINE ---
         st_folium(st.session_state.route_map, key="route_map_key", width=725, height=500)
-    else:
-        st.write("Click the button above to calculate and display the route.")
-        st.write("### Optimized Route Map")
-        st_folium(st.session_state.route_map, width=725, height=500)
     else:
         st.write("Click the button above to calculate and display the route.")
