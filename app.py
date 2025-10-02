@@ -3,10 +3,12 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+import plotly.express as px  # Import the new library
 import folium
 from streamlit_folium import st_folium
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error, r2_score
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
 
@@ -16,7 +18,6 @@ st.set_page_config(page_title="Smart Bin Analytics", layout="wide")
 # --- Load and Cache Data ---
 @st.cache_data
 def load_data():
-    # Load the dataset from your GitHub repository
     df = pd.read_csv('smart_bin_historical_data.csv')
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     return df
@@ -30,102 +31,92 @@ page = st.sidebar.radio("Go to", ["Home", "Exploratory Data Analysis", "Predicti
 # --- Home Page ---
 if page == "Home":
     st.title("Smart Waste Management Analytics Dashboard")
-    st.write("Welcome to the central analytics dashboard for the Smart Bin project. Use the navigation on the left to explore the different data science components.")
-    
+    st.write("Welcome! This dashboard provides a comprehensive overview of the Smart Bin project's data science components.")
     st.subheader("Project Overview")
     st.write("""
-    This project demonstrates an end-to-end IoT and Data Science solution for waste management.
     - **Live Data:** A physical prototype sends real-time fill-level data to a cloud dashboard.
     - **Historical Analysis:** We analyze a large dataset to understand waste generation patterns.
     - **Predictive Modeling:** A machine learning model forecasts when bins will become full.
-    - **Route Optimization:** An algorithm calculates the most efficient collection route for full bins, saving fuel and reducing emissions.
+    - **Route Optimization:** An algorithm calculates the most efficient collection route for full bins.
     """)
-    
     st.subheader("Dataset at a Glance")
     st.dataframe(df.head())
     st.write(f"The dataset contains **{len(df)}** hourly readings from **{df['bin_id'].nunique()}** simulated smart bins.")
 
-# --- EDA Page ---
+# --- EDA Page (Upgraded with Plotly) ---
 elif page == "Exploratory Data Analysis":
     st.title("Exploratory Data Analysis (EDA)")
+    st.write("These charts are now interactive. You can zoom, pan, and hover over the data.")
     
     st.subheader("Average Bin Fill Percentage by Hour of Day")
-    fig1, ax1 = plt.subplots(figsize=(15, 7))
     hourly_fill_pattern = df.groupby(['hour_of_day', 'area_type'])['bin_fill_percent'].mean().reset_index()
-    sns.lineplot(data=hourly_fill_pattern, x='hour_of_day', y='bin_fill_percent', hue='area_type', ax=ax1, lw=3)
-    ax1.set_xlabel('Hour of Day')
-    ax1.set_ylabel('Average Fill Level (%)')
-    ax1.set_xticks(range(0, 24))
-    ax1.grid(True)
-    st.pyplot(fig1)
+    fig1 = px.line(hourly_fill_pattern, 
+                   x='hour_of_day', 
+                   y='bin_fill_percent', 
+                   color='area_type',
+                   title='Average Bin Fill Percentage by Hour of Day',
+                   labels={'hour_of_day': 'Hour of Day', 'bin_fill_percent': 'Average Fill Level (%)'})
+    st.plotly_chart(fig1, use_container_width=True)
 
     st.subheader("Average Bin Fill Percentage by Day of the Week")
-    fig2, ax2 = plt.subplots(figsize=(12, 6))
+    daily_avg = df.groupby('day_of_week')['bin_fill_percent'].mean().reset_index()
     day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    sns.barplot(data=df, x='day_of_week', y='bin_fill_percent', order=day_order, palette='viridis', ax=ax2)
-    ax2.set_xlabel('Day of the Week')
-    ax2.set_ylabel('Average Fill Level (%)')
-    st.pyplot(fig2)
+    fig2 = px.bar(daily_avg, 
+                  x='day_of_week', 
+                  y='bin_fill_percent',
+                  category_orders={"day_of_week": day_order},
+                  title='Average Bin Fill Percentage by Day of the Week',
+                  labels={'day_of_week': 'Day of the Week', 'bin_fill_percent': 'Average Fill Level (%)'})
+    st.plotly_chart(fig2, use_container_width=True)
 
-# --- Predictive Model Page ---
+# --- Predictive Model Page (Upgraded Scatter Plot) ---
 elif page == "Predictive Model":
     st.title("Predictive Model for Bin Fill Level")
     
     with st.spinner("Preparing data and training model..."):
-        # Preprocessing
         features_to_use = ['hour_of_day', 'day_of_week', 'ward', 'area_type', 'time_since_last_pickup']
         target_variable = 'bin_fill_percent'
         model_df = df[features_to_use + [target_variable]].copy()
         model_df = pd.get_dummies(model_df, columns=['day_of_week', 'ward', 'area_type'], drop_first=True)
-        
-        # Train-test split
         X = model_df.drop(target_variable, axis=1)
         y = model_df[target_variable]
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-        
-        # Train model
         model = RandomForestRegressor(n_estimators=50, random_state=42, n_jobs=-1)
         model.fit(X_train, y_train)
-        
-        # Make predictions
         predictions = model.predict(X_test)
 
     st.subheader("Model Performance")
-    from sklearn.metrics import mean_absolute_error, r2_score
     mae = mean_absolute_error(y_test, predictions)
     r2 = r2_score(y_test, predictions)
-    
     col1, col2 = st.columns(2)
     col1.metric("Mean Absolute Error (MAE)", f"{mae:.2f}%")
     col2.metric("R-squared (R²) Score", f"{r2:.2f}")
 
-    st.subheader("Actual vs. Predicted Values")
+    st.subheader("Actual vs. Predicted Values (Sample of 5000 points)")
+    
+    # Create a dataframe for plotting
+    plot_data = pd.DataFrame({'Actual': y_test, 'Predicted': predictions})
+    # Take a random sample to avoid congestion
+    plot_data_sample = plot_data.sample(min(5000, len(plot_data)), random_state=42)
+
     fig, ax = plt.subplots(figsize=(8, 8))
-    sns.scatterplot(x=y_test, y=predictions, alpha=0.5, ax=ax)
-    ax.plot([0, 100], [0, 100], color='red', linestyle='--', lw=2)
+    sns.scatterplot(x='Actual', y='Predicted', data=plot_data_sample, alpha=0.3, ax=ax)
+    ax.plot([0, 100], [0, 100], color='red', linestyle='--', lw=2, label="Perfect Prediction")
     ax.set_xlabel('Actual Fill Level (%)')
     ax.set_ylabel('Predicted Fill Level (%)')
     ax.set_xlim(0, 100)
     ax.set_ylim(0, 100)
+    ax.legend()
     st.pyplot(fig)
 
 # --- Route Optimization Page ---
-# --- Route Optimization Page (Correctly Indented) ---
-# --- Route Optimization Page (Simplified Logic) ---
-# --- Route Optimization Page (Final Version) ---
 elif page == "Route Optimization":
+    # (The rest of the code for route optimization remains the same as our last stable version)
     st.title("Vehicle Route Optimization")
-
-    # Initialize session state to store the map if it doesn't exist
     if 'route_map' not in st.session_state:
         st.session_state.route_map = None
-
-    st.write("Click the button below to calculate the most efficient route for a sample of 10 full bins.")
-    
-    # The button to trigger the calculation
     if st.button("Calculate Optimized Route for Full Bins"):
         with st.spinner("Finding the most efficient route..."):
-            # All of your calculation and solver code...
             full_bins_sample = df[df['bin_fill_percent'] > 80].sample(10, random_state=42)
             full_bins_sample['demand_liters'] = (full_bins_sample['bin_fill_percent'] / 100) * full_bins_sample['bin_capacity_liters']
             depot_location = pd.DataFrame([{'bin_location_lat': 19.05, 'bin_location_lon': 72.85, 'demand_liters': 0, 'bin_id': 'Depot'}], index=[0])
@@ -139,8 +130,7 @@ elif page == "Route Optimization":
             manager = pywrapcp.RoutingIndexManager(len(data['locations']), data['num_vehicles'], data['depot'])
             routing = pywrapcp.RoutingModel(manager)
             def distance_callback(from_index, to_index):
-                from_node = manager.IndexToNode(from_index)
-                to_node = manager.IndexToNode(to_index)
+                from_node, to_node = manager.IndexToNode(from_index), manager.IndexToNode(to_index)
                 return int(abs(data['locations'][from_node][0] - data['locations'][to_node][0]) * 10000 + abs(data['locations'][from_node][1] - data['locations'][to_node][1]) * 10000)
             transit_callback_index = routing.RegisterTransitCallback(distance_callback)
             routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
@@ -151,10 +141,8 @@ elif page == "Route Optimization":
             routing.AddDimensionWithVehicleCapacity(demand_callback_index, 0, data['vehicle_capacities'], True, 'Capacity')
             search_parameters = pywrapcp.DefaultRoutingSearchParameters()
             search_parameters.first_solution_strategy = (routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
-            search_parameters.local_search_metaheuristic = (routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
-            search_parameters.time_limit.FromSeconds(1)
+            search_parameters.time_limit.FromSeconds(5)
             solution = routing.SolveWithParameters(search_parameters)
-
             if solution:
                 st.success("Optimized route found!")
                 optimized_route_indices = []
@@ -169,16 +157,12 @@ elif page == "Route Optimization":
                 for idx, row in route_data.iloc[1:].iterrows():
                     folium.Marker(location=[row['bin_location_lat'], row['bin_location_lon']], popup=f"Bin {row['bin_id']} (Demand: {row['demand_liters']:.0f} L)", icon=folium.Icon(color='blue', icon='trash')).add_to(m)
                 folium.PolyLine(locations=optimized_route_coords, color='green', weight=5, opacity=0.8).add_to(m)
-                
-                # We put the generated map into our "memory box" (session state)
                 st.session_state.route_map = m
             else:
                 st.error("No solution found!")
                 st.session_state.route_map = None
-
-    # --- Display Logic ---
-    # This part runs every time. It checks the "memory box".
-    # If a map is inside, it displays it.
     if st.session_state.route_map:
         st.write("### Optimized Route Map")
         st_folium(st.session_state.route_map, key="route_map_key", width=725, height=500)
+    else:
+        st.write("Click the button above to calculate and display the route.")
