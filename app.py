@@ -111,14 +111,12 @@ elif page == "Predictive Model":
 
 # --- Route Optimization Page ---
 # --- Route Optimization Page (Correctly Indented) ---
+# --- Route Optimization Page (Simplified Logic) ---
 elif page == "Route Optimization":
     st.title("Vehicle Route Optimization")
 
-    # Initialize session state for the map if it doesn't exist
-    if 'route_map' not in st.session_state:
-        st.session_state.route_map = None
+    st.write("Click the button below to calculate the most efficient route for a sample of 10 full bins.")
 
-    # The button to trigger the calculation
     if st.button("Calculate Optimized Route for Full Bins"):
         with st.spinner("Finding the most efficient route..."):
             # Prepare data for solver
@@ -177,14 +175,7 @@ elif page == "Route Optimization":
                     folium.Marker(location=[row['bin_location_lat'], row['bin_location_lon']], popup=f"Bin {row['bin_id']} (Demand: {row['demand_liters']:.0f} L)", icon=folium.Icon(color='blue', icon='trash')).add_to(m)
                 folium.PolyLine(locations=optimized_route_coords, color='green', weight=5, opacity=0.8).add_to(m)
                 
-                st.session_state.route_map = m
+                st.write("### Optimized Route Map")
+                st_folium(m, width=725, height=500)
             else:
                 st.error("No solution found!")
-                st.session_state.route_map = None
-
-    # --- Display Logic ---
-    if st.session_state.route_map:
-        st.write("### Optimized Route Map")
-        st_folium(st.session_state.route_map, key="route_map_key", width=725, height=500)
-    else:
-        st.write("Click the button above to calculate and display the route.")
