@@ -124,9 +124,12 @@ elif page == "Route Optimization":
             data = {}
             data['locations'] = list(zip(route_data['bin_location_lat'], route_data['bin_location_lon']))
             data['demands'] = [int(d) for d in route_data['demand_liters']]
-            data['vehicle_capacities'] = [7000]
+            
+            # --- THIS IS THE CORRECTED PART ---
+            data['vehicle_capacities'] = [20000] # Set truck capacity to 20,000 Liters
             data['num_vehicles'] = 1
             data['depot'] = 0
+            # --- END OF CORRECTION ---
 
             manager = pywrapcp.RoutingIndexManager(len(data['locations']), data['num_vehicles'], data['depot'])
             routing = pywrapcp.RoutingModel(manager)
