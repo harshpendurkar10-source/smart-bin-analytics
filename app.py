@@ -71,11 +71,12 @@ elif page == "Exploratory Data Analysis":
 
 # --- Predictive Model Page (Upgraded Scatter Plot) ---
 # --- Predictive Model Page (Upgraded with Beautified Plot) ---
+# --- Predictive Model Page (Upgraded with Light Theme Plot) ---
 elif page == "Predictive Model":
     st.title("Predictive Model for Bin Fill Level")
     
-    # This part remains the same: train the model
     with st.spinner("Preparing data and training model..."):
+        # This part remains the same
         features_to_use = ['hour_of_day', 'day_of_week', 'ward', 'area_type', 'time_since_last_pickup']
         target_variable = 'bin_fill_percent'
         model_df = df[features_to_use + [target_variable]].copy()
@@ -88,25 +89,23 @@ elif page == "Predictive Model":
         predictions = model.predict(X_test)
 
     st.subheader("Model Performance")
+    # This part remains the same
     from sklearn.metrics import mean_absolute_error, r2_score
     mae = mean_absolute_error(y_test, predictions)
     r2 = r2_score(y_test, predictions)
-    
     col1, col2 = st.columns(2)
     col1.metric("Mean Absolute Error (MAE)", f"{mae:.2f}%")
     col2.metric("R-squared (R²) Score", f"{r2:.2f}")
 
     st.subheader("Interactive Analysis of Model Predictions")
     
-    # Create a dataframe for the interactive plot
+    # This part remains the same
     plot_data = pd.DataFrame({'Actual': y_test, 'Predicted': predictions})
-    # Calculate the error for coloring
     plot_data['Error'] = abs(plot_data['Actual'] - plot_data['Predicted'])
-    
-    # Take a random sample to keep the plot fast and clear
     plot_data_sample = plot_data.sample(min(5000, len(plot_data)), random_state=42)
     
-    # Create the interactive scatter plot with Plotly Express
+    # --- THIS IS THE MODIFIED PART ---
+    # Create the interactive scatter plot with a light theme
     fig = px.scatter(
         plot_data_sample, 
         x='Actual', 
@@ -117,22 +116,21 @@ elif page == "Predictive Model":
         marginal_y='histogram',
         hover_name=plot_data_sample.index,
         hover_data={'Actual': ':.2f', 'Predicted': ':.2f', 'Error': ':.2f'},
-        title="Actual vs. Predicted Fill Levels (Colored by Prediction Error)"
+        title="Actual vs. Predicted Fill Levels (Colored by Prediction Error)",
+        template='plotly_white' # <-- THIS LINE SETS THE LIGHT THEME
     )
 
-    # Add the "Perfect Prediction" line
+    # This part remains the same
     fig.add_shape(
         type='line',
         x0=0, y0=0,
         x1=100, y1=100,
         line=dict(color='Red', width=2, dash='dash')
     )
-
     fig.update_layout(
         xaxis_title='Actual Fill Level (%)',
         yaxis_title='Predicted Fill Level (%)'
     )
-    
     st.plotly_chart(fig, use_container_width=True)
 
 # --- Route Optimization Page ---
