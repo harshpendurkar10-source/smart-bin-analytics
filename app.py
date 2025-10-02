@@ -112,6 +112,7 @@ elif page == "Predictive Model":
 # --- Route Optimization Page ---
 # --- Route Optimization Page (Corrected) ---
 # --- Route Optimization Page (Final Version) ---
+# --- Route Optimization Page (Final Version with Key) ---
 elif page == "Route Optimization":
     st.title("Vehicle Route Optimization")
 
@@ -178,16 +179,18 @@ elif page == "Route Optimization":
                     folium.Marker(location=[row['bin_location_lat'], row['bin_location_lon']], popup=f"Bin {row['bin_id']} (Demand: {row['demand_liters']:.0f} L)", icon=folium.Icon(color='blue', icon='trash')).add_to(m)
                 folium.PolyLine(locations=optimized_route_coords, color='green', weight=5, opacity=0.8).add_to(m)
                 
-                # Save the newly created map to the session state
                 st.session_state.route_map = m
             else:
                 st.error("No solution found!")
-                # If no solution, clear the previous map
                 st.session_state.route_map = None
 
     # --- Display Logic ---
-    # This part now runs on every script rerun to display the saved map
     if st.session_state.route_map:
+        st.write("### Optimized Route Map")
+        # --- THIS IS THE MODIFIED LINE ---
+        st_folium(st.session_state.route_map, key="route_map_key", width=725, height=500)
+    else:
+        st.write("Click the button above to calculate and display the route.")
         st.write("### Optimized Route Map")
         st_folium(st.session_state.route_map, width=725, height=500)
     else:
