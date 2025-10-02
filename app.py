@@ -112,70 +112,73 @@ elif page == "Predictive Model":
 # --- Route Optimization Page ---
 # --- Route Optimization Page (Correctly Indented) ---
 # --- Route Optimization Page (Simplified Logic) ---
+# --- Route Optimization Page (Final Version) ---
 elif page == "Route Optimization":
     st.title("Vehicle Route Optimization")
 
-    st.write("Click the button below to calculate the most efficient route for a sample of 10 full bins.")
+    # Initialize session state to store the map if it doesn't exist
+    if 'route_map' not in st.session_state:
+        st.session_state.route_map = None
 
+    st.write("Click the button below to calculate the most efficient route for a sample of 10 full bins.")
+    
+    # The button to trigger the calculation
     if st.button("Calculate Optimized Route for Full Bins"):
         with st.spinner("Finding the most efficient route..."):
-            # Prepare data for solver
+            # All of your calculation and solver code...
             full_bins_sample = df[df['bin_fill_percent'] > 80].sample(10, random_state=42)
             full_bins_sample['demand_liters'] = (full_bins_sample['bin_fill_percent'] / 100) * full_bins_sample['bin_capacity_liters']
             depot_location = pd.DataFrame([{'bin_location_lat': 19.05, 'bin_location_lon': 72.85, 'demand_liters': 0, 'bin_id': 'Depot'}], index=[0])
             route_data = pd.concat([depot_location, full_bins_sample]).reset_index(drop=True)
-
             data = {}
             data['locations'] = list(zip(route_data['bin_location_lat'], route_data['bin_location_lon']))
             data['demands'] = [int(d) for d in route_data['demand_liters']]
             data['vehicle_capacities'] = [20000]
             data['num_vehicles'] = 1
             data['depot'] = 0
-
             manager = pywrapcp.RoutingIndexManager(len(data['locations']), data['num_vehicles'], data['depot'])
             routing = pywrapcp.RoutingModel(manager)
-
             def distance_callback(from_index, to_index):
                 from_node = manager.IndexToNode(from_index)
                 to_node = manager.IndexToNode(to_index)
                 return int(abs(data['locations'][from_node][0] - data['locations'][to_node][0]) * 10000 + abs(data['locations'][from_node][1] - data['locations'][to_node][1]) * 10000)
-
             transit_callback_index = routing.RegisterTransitCallback(distance_callback)
             routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
-
             def demand_callback(from_index):
                 from_node = manager.IndexToNode(from_index)
                 return data['demands'][from_node]
-
             demand_callback_index = routing.RegisterUnaryTransitCallback(demand_callback)
             routing.AddDimensionWithVehicleCapacity(demand_callback_index, 0, data['vehicle_capacities'], True, 'Capacity')
-
             search_parameters = pywrapcp.DefaultRoutingSearchParameters()
             search_parameters.first_solution_strategy = (routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
             search_parameters.local_search_metaheuristic = (routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
             search_parameters.time_limit.FromSeconds(1)
-
             solution = routing.SolveWithParameters(search_parameters)
 
             if solution:
                 st.success("Optimized route found!")
-                
                 optimized_route_indices = []
                 index = routing.Start(0)
                 while not routing.IsEnd(index):
                     optimized_route_indices.append(manager.IndexToNode(index))
                     index = solution.Value(routing.NextVar(index))
                 optimized_route_indices.append(manager.IndexToNode(index))
-                
                 optimized_route_coords = [data['locations'][i] for i in optimized_route_indices]
-                
                 m = folium.Map(location=[19.0760, 72.8777], zoom_start=12)
                 folium.Marker(location=data['locations'][0], popup='Depot', icon=folium.Icon(color='red', icon='home')).add_to(m)
                 for idx, row in route_data.iloc[1:].iterrows():
                     folium.Marker(location=[row['bin_location_lat'], row['bin_location_lon']], popup=f"Bin {row['bin_id']} (Demand: {row['demand_liters']:.0f} L)", icon=folium.Icon(color='blue', icon='trash')).add_to(m)
                 folium.PolyLine(locations=optimized_route_coords, color='green', weight=5, opacity=0.8).add_to(m)
                 
-                st.write("### Optimized Route Map")
-                st_folium(m, width=725, height=500)
+                # We put the generated map into our "memory box" (session state)
+                st.session_state.route_map = m
             else:
                 st.error("No solution found!")
+                st.session_state.route_map = None
+
+    # --- Display Logic ---
+    # This part runs every time. It checks the "memory box".
+    # If a map is inside, it displays it.
+    if st.session_state.route_map:
+        st.write("### Optimized Route Map")
+        st_folium(st.session_state.route_map, key="route_map_key", width=725, height=500)
